@@ -1,7 +1,7 @@
-#include "complex.c"
+#include "kernels/complex.c"
 
 #define N 5
-#define F_EPSILON 1e-20f
+#define FLT_EPSILON 0x1.0p-23f
 
 float Jacobi_am(float u, char arg, float x)
 {
@@ -43,7 +43,7 @@ float Jacobi_am(float u, char arg, float x)
    
    two_n = 1.0f; 
    for (n = 0; n < N; n++) {
-      if ( fabs(a[n] - g[n]) < (a[n] * F_EPSILON) ) break;
+      if ( fabs(a[n] - g[n]) < (a[n] * FLT_EPSILON) ) break;
       two_n += two_n;
       a[n+1] = 0.5f * (a[n] + g[n]);
       g[n+1] = sqrt(a[n] * g[n]);

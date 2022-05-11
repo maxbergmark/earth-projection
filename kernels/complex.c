@@ -83,7 +83,8 @@ inline cfloat  cmult(cfloat a, cfloat b){
  * 
  */
 inline cfloat cdiv(cfloat a, cfloat b){
-    return (cfloat)((a.x*b.x + a.y*b.y)/(b.x*b.x + b.y*b.y), (a.y*b.x - a.x*b.y)/(b.x*b.x + b.y*b.y));
+    return (cfloat)((a.x*b.x + a.y*b.y)/(b.x*b.x + b.y*b.y), 
+        (a.y*b.x - a.x*b.y)/(b.x*b.x + b.y*b.y));
 }
 
 
@@ -95,5 +96,6 @@ inline cfloat cdiv(cfloat a, cfloat b){
  *  http://en.wikipedia.org/wiki/Square_root#Principal_square_root_of_a_complex_number
  */
  inline cfloat csqrt(cfloat a){
-     return (cfloat)( sqrt(cmod(a)) * cos(carg(a)/2),  sqrt(cmod(a)) * sin(carg(a)/2));
+     return (cfloat)(sqrt(cmod(a)) * cos(carg(a)/2), 
+        sqrt(cmod(a)) * sin(carg(a)/2));
  }
