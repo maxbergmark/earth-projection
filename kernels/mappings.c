@@ -8,6 +8,10 @@ float get_angle(float3 v1, float3 v2) {
 	return acos(dot(v1, v2) / (length(v1) * length(v2)));
 }
 
+float get_sum(float4 v) {
+	return v.x + v.y + v.z + v.w;
+}
+
 // coord.x = phi, coord.y = theta
 float2 pixel_to_coord(float2 pos) {
 	return (float2)(2.f*PI*pos.x, PI*pos.y);
@@ -62,9 +66,9 @@ float3 pixel_to_point_stereographic(float2 pos, int2 size) {
 	float y = pos.y;
 	float xy = x*x + y*y;
 	return (float3) (
-		2.f*y / (1.f + xy),
+		-2.f*y / (1.f + xy),
 		-2.f*x / (1.f + xy),
-		(-1.f + xy) / (1.f + xy)
+		-(-1.f + xy) / (1.f + xy)
 	);
 }
 

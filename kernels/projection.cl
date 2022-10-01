@@ -37,7 +37,7 @@ float4 mix_night(float4 earth_pix, float4 night_pix,
 __kernel void project(read_only image2d_t earth_src, 
 	read_only image2d_t night_src, read_only image2d_t specular_src, 
 	read_only image2d_t normal_src, write_only image2d_t dest, 
-	float rot_x, float rot_y, float rot_z, float t) {
+	float rot_x, float rot_y, float rot_z, float t, float4 proj_mix) {
 
 
 	const sampler_t sampler = CLK_NORMALIZED_COORDS_TRUE 
@@ -47,14 +47,24 @@ __kernel void project(read_only image2d_t earth_src,
 	
 	float2 pos = (float2)((float) int_pos.x / size.x, (float) int_pos.y / size.y);
 
-	// float3 point = pixel_to_point_equirectangular(pos);
-	float3 point = pixel_to_point_guyou(pos);
-	// float3 point = pixel_to_point_peirce(pos);
-	// float3 point = pixel_to_point_stereographic(pos, size);
+	float3 point_equi = pixel_to_point_equirectangular(pos);
+	float3 point_stereo = pixel_to_point_stereographic(pos, size);
+	float3 point_guyou = pixel_to_point_guyou(pos);
+	float3 point_peirce = pixel_to_point_peirce(pos);
+
+	proj_mix /= get_sum(proj_mix);
+	float3 point = normalize(
+		proj_mix.x * point_equi
+		+ proj_mix.y * point_stereo
+		+ proj_mix.z * point_peirce
+		+ proj_mix.w * point_guyou
+	);
+
 	// write_imagef(dest, int_pos, (float4) (point.x, point.y, point.z, 1.f));
 	// return;
 
 	float3 rotated_point = rotate_point(point, rot_x, rot_y, rot_z);
+	// float3 rotated_point = point;
 	float2 rotated_pos = point_to_pixel_equirectangular(rotated_point);
 
 

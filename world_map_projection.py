@@ -2,8 +2,60 @@ import numpy as np
 import cv2
 import pyopencl as cl
 import time
+import matplotlib.pyplot as plt
 
+def cv2_render(view_name = "view"):
+	def f(cls):
+		class CV2Renderer(cls):
+
+			def __init__(self):
+				super().__init__()
+				self.rendered_frame = getattr(self, view_name)
+
+			def show_animation(self):
+				while True:
+					self.update()
+					self.render_image()
+					cv2.imshow(self.window_name, self.rendered_frame)
+					if cv2.waitKey(1) == ord('q'):
+						break
+
+		return CV2Renderer
+	return f
+
+
+def read_textures(textures = "textures"):
+	def f(cls):
+		class TextureRenderer(cls):
+
+			def __init__(self):
+				self.texture_map = getattr(self, textures)
+				super().__init__()
+
+			def read_image(self, filename):
+				print("Reading texture:", filename)
+				img = cv2.imread(filename, cv2.IMREAD_UNCHANGED)
+				img = cv2.cvtColor(img, cv2.COLOR_RGB2RGBA)
+				img = img.astype(np.float32) / 255
+				return cl.image_from_array(self.ctx, img, 4)
+
+			def read_images(self):
+				for name, filename in self.texture_map.items():
+					setattr(self, name, self.read_image(filename))
+
+		return TextureRenderer
+	return f
+
+@cv2_render(view_name = "view")
+@read_textures(textures = "textures")
 class Renderer:
+
+	textures = {
+		"earth_day": "textures/8081_earthmap10k.jpg",
+		"earth_night": "textures/8081_earthlights10k.jpg",
+		"earth_normal": "textures/8k_earth_normal_map.jpg",
+		"earth_specular": "textures/8081_earthspec10k.jpg"
+	}
 
 	def __init__(self):
 		self.window_name = "Map Projection"
@@ -15,6 +67,7 @@ class Renderer:
 		self.render_w = self.w*self.upscale
 		self.angle_x, self.angle_y, self.angle_z, self.t = 0, 0, 0, 0
 		self.setup_opencl()
+		cv2.setMouseCallback(self.window_name, self.update_angles)
 
 
 	def setup_opencl(self):
@@ -36,36 +89,29 @@ class Renderer:
 			cl.mem_flags.READ_WRITE, fmt, shape=(self.w, self.h))
 		self.view = np.empty((self.h, self.w, 4), dtype=np.float32)
 
-	def read_image(self, filename):
-		print("Reading texture:", filename)
-		img = cv2.imread(filename, cv2.IMREAD_UNCHANGED)
-		img = cv2.cvtColor(img, cv2.COLOR_RGB2RGBA)
-		img = img.astype(np.float32) / 255
-		return cl.image_from_array(self.ctx, img, 4)
-
-	def read_images(self):
-		self.earth_buf = self.read_image('textures/8081_earthmap10k.jpg')
-		self.specular_buf = self.read_image('textures/8081_earthspec10k.jpg')
-		self.normal_buf = self.read_image('textures/8k_earth_normal_map.jpg')
-		self.night_buf = self.read_image('textures/8081_earthlights10k.jpg')
-
 	def update_angles(self, event, x, y, flags, param):
 		self.angle_x = x / self.w * 2 * np.pi
 		self.angle_y = (y / self.h - 0.5) * 2 * np.pi
 		# self.angle_y = self.angle_x
 
+	def update(self):
+		self.t = .5*time.time() % (8*np.pi)
+
 	def render_image(self):
+		weights = np.array(
+			[max(0, np.cos(0.25*self.t + i*np.pi/2))**2 for i in range(4)], 
+			dtype=np.float32)
+		
 		self.program.project(self.queue, (self.render_w, self.render_h), None, 
-			self.earth_buf, self.night_buf, 
-			self.specular_buf, self.normal_buf, self.render_buf, 
+			self.earth_day, self.earth_night, 
+			self.earth_specular, self.earth_normal, self.render_buf, 
 			np.float32(self.angle_z), np.float32(self.angle_y), 
-			np.float32(-self.angle_x), np.float32(self.t))
+			np.float32(-self.angle_x), np.float32(self.t), 
+			weights)
 
 		self.program.downscale(self.queue, (self.w, self.h), None, 
 			self.render_buf, self.view_buf, np.int32(self.upscale))
 		
-		# cl.enqueue_copy(self.queue, self.dest, self.dest_buf, 
-			# origin=(0, 0), region=(self.render_w, self.render_h))
 		cl.enqueue_copy(self.queue, self.view, self.view_buf, 
 			origin=(0, 0), region=(self.w, self.h))
 
@@ -78,8 +124,6 @@ class Renderer:
 		frame_buf = cl.Image(self.ctx, 
 			cl.mem_flags.READ_WRITE, fmt_rgba, shape=(self.w, self.h))
 		frame_rgba = np.empty((self.h, self.w, 4), dtype=np.uint8)
-
-
 
 		n_frames = 1600
 		for i in range(n_frames):
@@ -103,21 +147,7 @@ class Renderer:
 		cv2.destroyAllWindows()
 		video.release()
 
-	def show_animation(self):
-		cv2.setMouseCallback(self.window_name, self.update_angles)
-		last = time.perf_counter()
-		while True:
-			t0 = time.perf_counter()
-			self.t = .5*time.time() % (2*np.pi)
-			self.render_image()
-			t1 = time.perf_counter()
-			print(f"\r{t1-t0:.3f}, {t1-last:.3f}", end="", flush=True)
-			last = t1
-			cv2.imshow(self.window_name, self.view)
-			if cv2.waitKey(1) == ord('q'):
-				break
 
-		print()
 
 
 renderer = Renderer()
