@@ -98,10 +98,17 @@ class Renderer:
 		self.t = .5*time.time() % (8*np.pi)
 
 	def render_image(self):
+		# weights are automatically normalized
+		# the weights combine different projections to linearly interpolate between them
+		# the weight array should be of size 4, and each index corresponds to a specific projection:
+		# 	0: equirectangular
+		#	1: stereographic
+		#	2: pierce
+		#	3: guyou
 		weights = np.array(
 			[max(0, np.cos(0.25*self.t + i*np.pi/2))**2 for i in range(4)], 
 			dtype=np.float32)
-		
+
 		self.program.project(self.queue, (self.render_w, self.render_h), None, 
 			self.earth_day, self.earth_night, 
 			self.earth_specular, self.earth_normal, self.render_buf, 
